@@ -30,13 +30,14 @@ app.use(express.json());
 
 app.use(
   cors({
-    origin: true, // ✅ allows Netlify + localhost
+    origin: true, // ✅ allow Netlify + localhost
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })
 );
 
 app.options("*", cors());
+
 
 
 
