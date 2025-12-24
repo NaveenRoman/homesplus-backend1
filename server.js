@@ -1,11 +1,5 @@
-/*********************************
- * 1️⃣ ENV MUST LOAD FIRST
- *********************************/
 require("dotenv").config();
 
-/*********************************
- * 2️⃣ IMPORTS
- *********************************/
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
@@ -18,68 +12,57 @@ const Inquiry = require("./models/Inquiry");
 const sendOTPEmail = require("./utils/email");
 const adminRoutes = require("./routes/admin");
 
-/*********************************
- * 3️⃣ APP INITIALIZATION
- *********************************/
 const app = express();
 
-/*********************************
- * 4️⃣ GLOBAL MIDDLEWARE
- *********************************/
+/* ===============================
+   MIDDLEWARE
+================================ */
 app.use(express.json());
 
 app.use(
   cors({
-    origin: true, // ✅ allows Netlify + localhost
+    origin: true, // ✅ allows Netlify + localhost automatically
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })
 );
 
-// ✅ FIXED FOR NODE 22 (IMPORTANT)
-app.options("/*", cors());
-
-/*********************************
- * 5️⃣ DEBUG ENV (SAFE)
- *********************************/
-console.log(
-  "SENDGRID_API_KEY:",
-  process.env.SENDGRID_API_KEY ? "LOADED" : "NOT LOADED"
-);
+/* ===============================
+   ENV DEBUG
+================================ */
+console.log("SENDGRID_API_KEY:", process.env.SENDGRID_API_KEY ? "LOADED" : "NOT LOADED");
 console.log("EMAIL_FROM:", process.env.EMAIL_FROM);
 console.log("MONGO_URI:", process.env.MONGO_URI ? "LOADED" : "NOT LOADED");
 
-/*********************************
- * 6️⃣ SENDGRID CONFIG
- *********************************/
+/* ===============================
+   SENDGRID
+================================ */
 if (process.env.SENDGRID_API_KEY) {
   sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 }
 
-/*********************************
- * 7️⃣ DATABASE CONNECTION
- *********************************/
+/* ===============================
+   DATABASE
+================================ */
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB Connected"))
-  .catch((err) => console.error("❌ MongoDB Error:", err.message));
+  .catch(err => console.error("❌ MongoDB Error:", err.message));
 
-/*********************************
- * 8️⃣ HEALTH CHECK
- *********************************/
+/* ===============================
+   HEALTH CHECK
+================================ */
 app.get("/", (req, res) => {
   res.send("HomesPlus Backend Running ✅");
 });
 
-/*********************************
- * 9️⃣ SEND OTP
- *********************************/
+/* ===============================
+   SEND OTP
+================================ */
 app.post("/api/send-otp", async (req, res) => {
   try {
     const { email } = req.body;
-    if (!email) {
-      return res.status(400).json({ message: "Email is required" });
-    }
+    if (!email) return res.status(400).json({ message: "Email is required" });
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpExpires = new Date(Date.now() + 5 * 60 * 1000);
@@ -93,39 +76,25 @@ app.post("/api/send-otp", async (req, res) => {
     await user.save();
 
     await sendOTPEmail(email, otp);
-    console.log(`📧 OTP sent to ${email}`);
 
     res.json({ message: "OTP sent successfully" });
-  } catch (error) {
-    console.error("❌ SEND OTP ERROR:", error.message);
+  } catch (err) {
+    console.error("SEND OTP ERROR:", err.message);
     res.status(500).json({ message: "OTP generated but email failed" });
   }
 });
 
-/*********************************
- * 🔟 VERIFY OTP
- *********************************/
+/* ===============================
+   VERIFY OTP
+================================ */
 app.post("/api/verify-otp", async (req, res) => {
   try {
     const { email, otp } = req.body;
-    if (!email || !otp) {
-      return res
-        .status(400)
-        .json({ message: "Email and OTP are required" });
-    }
 
     const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    if (user.otp !== otp) {
-      return res.status(401).json({ message: "Invalid OTP" });
-    }
-
-    if (user.otpExpires < new Date()) {
-      return res.status(401).json({ message: "OTP expired" });
-    }
+    if (!user) return res.status(404).json({ message: "User not found" });
+    if (user.otp !== otp) return res.status(401).json({ message: "Invalid OTP" });
+    if (user.otpExpires < new Date()) return res.status(401).json({ message: "OTP expired" });
 
     user.verified = true;
     user.otp = undefined;
@@ -139,73 +108,27 @@ app.post("/api/verify-otp", async (req, res) => {
     );
 
     res.json({ message: "OTP verified successfully", token });
-  } catch (error) {
-    console.error("❌ VERIFY OTP ERROR:", error.message);
+  } catch (err) {
     res.status(500).json({ message: "Server error" });
   }
 });
 
-/*********************************
- * 🔐 PROTECTED PROFILE
- *********************************/
+/* ===============================
+   PROFILE
+================================ */
 app.get("/api/profile", authMiddleware, async (req, res) => {
-  try {
-    const user = await User.findById(req.user.userId).select(
-      "-otp -otpExpires"
-    );
-    res.json({ message: "Profile fetched", user });
-  } catch (error) {
-    res.status(500).json({ message: "Failed to fetch profile" });
-  }
+  const user = await User.findById(req.user.userId).select("-otp -otpExpires");
+  res.json(user);
 });
 
-/*********************************
- * 📩 PROPERTY INQUIRY
- *********************************/
-app.post("/api/inquiry", async (req, res) => {
-  try {
-    const { propertyId, name, email, phone, message } = req.body;
-    if (!propertyId || !name || !email || !phone || !message) {
-      return res.status(400).json({ message: "All fields are required" });
-    }
-
-    const inquiry = new Inquiry({
-      propertyId,
-      name,
-      email,
-      phone,
-      message,
-    });
-    await inquiry.save();
-
-    await sgMail.send({
-      to: process.env.ADMIN_EMAIL,
-      from: process.env.EMAIL_FROM,
-      subject: `🏠 New Property Inquiry (${propertyId})`,
-      html: `
-        <h3>New Inquiry</h3>
-        <p><b>Name:</b> ${name}</p>
-        <p><b>Email:</b> ${email}</p>
-        <p><b>Phone:</b> ${phone}</p>
-        <p>${message}</p>
-      `,
-    });
-
-    res.json({ message: "Inquiry sent successfully" });
-  } catch (error) {
-    console.error("❌ INQUIRY ERROR:", error.message);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-/*********************************
- * 🛠 ADMIN ROUTES
- *********************************/
+/* ===============================
+   ADMIN ROUTES
+================================ */
 app.use("/api/admin", adminRoutes);
 
-/*********************************
- * 🚀 START SERVER
- *********************************/
+/* ===============================
+   START SERVER
+================================ */
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
