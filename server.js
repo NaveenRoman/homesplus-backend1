@@ -18,8 +18,18 @@ console.log(
 console.log("EMAIL_FROM:", process.env.EMAIL_FROM);
 
 const app = express();
-app.use(cors());
-app.use(express.json());
+const cors = require("cors");
+
+app.use(cors({
+  origin: [
+    "http://127.0.0.1:5500",
+    "http://localhost:5500",
+    "https://iridescent-bienenstitch-13ec8f.netlify.app"
+  ],
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true
+}));
+
 
 // 🔌 MongoDB Connection
 mongoose
@@ -225,3 +235,4 @@ app.post("/api/inquiry", async (req, res) => {
 
 const adminRoutes = require("./routes/admin");
 app.use("/api/admin", adminRoutes);
+

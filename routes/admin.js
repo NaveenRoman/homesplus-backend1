@@ -2,23 +2,27 @@ const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
 const Inquiry = require("../models/Inquiry");
-const authMiddleware = require("../middleware/auth");
+const auth = require("../middleware/auth");
 
-// 🔐 Admin stats (protected)
-router.get("/stats", authMiddleware, async (req, res) => {
+// GET /api/admin/stats
+router.get("/stats", auth, async (req, res) => {
   try {
     const totalUsers = await User.countDocuments();
-    const verifiedUsers = await User.countDocuments({ verified: true });
-    const inquiries = await Inquiry.countDocuments();
+    const verifiedUsers = await User.countDocuments({ isVerified: true });
+    const totalInquiries = await Inquiry.countDocuments();
+
+    const recentInquiries = await Inquiry.find()
+      .sort({ createdAt: -1 })
+      .limit(10);
 
     res.json({
       totalUsers,
       verifiedUsers,
-      inquiries,
+      totalInquiries,
+      recentInquiries
     });
-  } catch (error) {
-    console.error("❌ ADMIN STATS ERROR:", error.message);
-    res.status(500).json({ message: "Server error" });
+  } catch (err) {
+    res.status(500).json({ message: "Admin stats error" });
   }
 });
 
