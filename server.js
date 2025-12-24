@@ -4,7 +4,7 @@
 require("dotenv").config();
 
 /*********************************
- * 2️⃣ IMPORTS (NO DUPLICATES)
+ * 2️⃣ IMPORTS
  *********************************/
 const express = require("express");
 const mongoose = require("mongoose");
@@ -19,7 +19,7 @@ const sendOTPEmail = require("./utils/email");
 const adminRoutes = require("./routes/admin");
 
 /*********************************
- * 3️⃣ APP INITIALIZATION (BEFORE app.use)
+ * 3️⃣ APP INITIALIZATION
  *********************************/
 const app = express();
 
@@ -30,16 +30,14 @@ app.use(express.json());
 
 app.use(
   cors({
-    origin: true, // ✅ allow Netlify + localhost
+    origin: true, // ✅ allows Netlify + localhost
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })
 );
 
-app.options("*", cors());
-
-
-
+// ✅ FIXED FOR NODE 22 (IMPORTANT)
+app.options("/*", cors());
 
 /*********************************
  * 5️⃣ DEBUG ENV (SAFE)
@@ -49,11 +47,14 @@ console.log(
   process.env.SENDGRID_API_KEY ? "LOADED" : "NOT LOADED"
 );
 console.log("EMAIL_FROM:", process.env.EMAIL_FROM);
+console.log("MONGO_URI:", process.env.MONGO_URI ? "LOADED" : "NOT LOADED");
 
 /*********************************
  * 6️⃣ SENDGRID CONFIG
  *********************************/
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+if (process.env.SENDGRID_API_KEY) {
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+}
 
 /*********************************
  * 7️⃣ DATABASE CONNECTION
@@ -67,7 +68,7 @@ mongoose
  * 8️⃣ HEALTH CHECK
  *********************************/
 app.get("/", (req, res) => {
-  res.send("HomesPlus Backend Running");
+  res.send("HomesPlus Backend Running ✅");
 });
 
 /*********************************
@@ -76,8 +77,9 @@ app.get("/", (req, res) => {
 app.post("/api/send-otp", async (req, res) => {
   try {
     const { email } = req.body;
-    if (!email)
+    if (!email) {
       return res.status(400).json({ message: "Email is required" });
+    }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpExpires = new Date(Date.now() + 5 * 60 * 1000);
@@ -91,7 +93,7 @@ app.post("/api/send-otp", async (req, res) => {
     await user.save();
 
     await sendOTPEmail(email, otp);
-    console.log(`📧 OTP sent to ${email}: ${otp}`);
+    console.log(`📧 OTP sent to ${email}`);
 
     res.json({ message: "OTP sent successfully" });
   } catch (error) {
@@ -106,17 +108,24 @@ app.post("/api/send-otp", async (req, res) => {
 app.post("/api/verify-otp", async (req, res) => {
   try {
     const { email, otp } = req.body;
-    if (!email || !otp)
-      return res.status(400).json({ message: "Email and OTP are required" });
+    if (!email || !otp) {
+      return res
+        .status(400)
+        .json({ message: "Email and OTP are required" });
+    }
 
     const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
-    if (user.otp !== otp)
+    if (user.otp !== otp) {
       return res.status(401).json({ message: "Invalid OTP" });
+    }
 
-    if (user.otpExpires < new Date())
+    if (user.otpExpires < new Date()) {
       return res.status(401).json({ message: "OTP expired" });
+    }
 
     user.verified = true;
     user.otp = undefined;
@@ -145,7 +154,7 @@ app.get("/api/profile", authMiddleware, async (req, res) => {
       "-otp -otpExpires"
     );
     res.json({ message: "Profile fetched", user });
-  } catch {
+  } catch (error) {
     res.status(500).json({ message: "Failed to fetch profile" });
   }
 });
@@ -156,8 +165,9 @@ app.get("/api/profile", authMiddleware, async (req, res) => {
 app.post("/api/inquiry", async (req, res) => {
   try {
     const { propertyId, name, email, phone, message } = req.body;
-    if (!propertyId || !name || !email || !phone || !message)
+    if (!propertyId || !name || !email || !phone || !message) {
       return res.status(400).json({ message: "All fields are required" });
+    }
 
     const inquiry = new Inquiry({
       propertyId,
@@ -194,7 +204,7 @@ app.post("/api/inquiry", async (req, res) => {
 app.use("/api/admin", adminRoutes);
 
 /*********************************
- * 🚀 START SERVER (LAST)
+ * 🚀 START SERVER
  *********************************/
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
