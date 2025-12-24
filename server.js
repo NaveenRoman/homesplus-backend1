@@ -1,204 +1,163 @@
-require("dotenv").config(); // MUST be first
+/*********************************
+ * 1️⃣ ENV MUST LOAD FIRST
+ *********************************/
+require("dotenv").config();
 
-const authMiddleware = require("./middleware/auth");
-
-
+/*********************************
+ * 2️⃣ IMPORTS (NO DUPLICATES)
+ *********************************/
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
+const jwt = require("jsonwebtoken");
+const sgMail = require("@sendgrid/mail");
 
+const authMiddleware = require("./middleware/auth");
 const User = require("./models/User");
+const Inquiry = require("./models/Inquiry");
 const sendOTPEmail = require("./utils/email");
+const adminRoutes = require("./routes/admin");
 
-// 🔍 ENV DEBUG (SendGrid)
+/*********************************
+ * 3️⃣ APP INITIALIZATION (BEFORE app.use)
+ *********************************/
+const app = express();
+
+/*********************************
+ * 4️⃣ GLOBAL MIDDLEWARE
+ *********************************/
+app.use(express.json());
+
+app.use(
+  cors({
+    origin: [
+      "http://127.0.0.1:5500",
+      "http://localhost:5500",
+      "https://iridescent-bienenstitch-13ec8f.netlify.app",
+    ],
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true,
+  })
+);
+
+/*********************************
+ * 5️⃣ DEBUG ENV (SAFE)
+ *********************************/
 console.log(
   "SENDGRID_API_KEY:",
   process.env.SENDGRID_API_KEY ? "LOADED" : "NOT LOADED"
 );
 console.log("EMAIL_FROM:", process.env.EMAIL_FROM);
 
-const app = express();
-const cors = require("cors");
+/*********************************
+ * 6️⃣ SENDGRID CONFIG
+ *********************************/
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
-app.use(cors({
-  origin: [
-    "http://127.0.0.1:5500",
-    "http://localhost:5500",
-    "https://iridescent-bienenstitch-13ec8f.netlify.app"
-  ],
-  methods: ["GET", "POST", "PUT", "DELETE"],
-  credentials: true
-}));
-
-
-// 🔌 MongoDB Connection
+/*********************************
+ * 7️⃣ DATABASE CONNECTION
+ *********************************/
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB Connected"))
-  .catch((err) =>
-    console.error("❌ MongoDB Error:", err.message)
-  );
+  .catch((err) => console.error("❌ MongoDB Error:", err.message));
 
-// 🟢 Health check
+/*********************************
+ * 8️⃣ HEALTH CHECK
+ *********************************/
 app.get("/", (req, res) => {
   res.send("HomesPlus Backend Running");
 });
 
-// 🔢 SEND OTP ROUTE
+/*********************************
+ * 9️⃣ SEND OTP
+ *********************************/
 app.post("/api/send-otp", async (req, res) => {
   try {
     const { email } = req.body;
+    if (!email)
+      return res.status(400).json({ message: "Email is required" });
 
-    if (!email) {
-      return res.status(400).json({
-        message: "Email is required",
-      });
-    }
-
-    const otp = Math.floor(
-      100000 + Math.random() * 900000
-    ).toString();
-
-    const otpExpires = new Date(
-      Date.now() + 5 * 60 * 1000
-    );
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpires = new Date(Date.now() + 5 * 60 * 1000);
 
     let user = await User.findOne({ email });
-    if (!user) {
-      user = new User({ email });
-    }
+    if (!user) user = new User({ email });
 
     user.otp = otp;
     user.otpExpires = otpExpires;
     user.verified = false;
     await user.save();
 
-    // 📧 Send OTP email
-    try {
-      await sendOTPEmail(email, otp);
-      console.log(`📧 OTP sent to ${email}: ${otp}`);
-    } catch (mailError) {
-      console.error(
-        "❌ EMAIL ERROR:",
-        mailError.response?.body || mailError.message
-      );
-      return res.status(500).json({
-        message: "OTP generated but email failed",
-      });
-    }
+    await sendOTPEmail(email, otp);
+    console.log(`📧 OTP sent to ${email}: ${otp}`);
 
     res.json({ message: "OTP sent successfully" });
   } catch (error) {
     console.error("❌ SEND OTP ERROR:", error.message);
-    res.status(500).json({
-      message: "Internal server error",
-    });
+    res.status(500).json({ message: "OTP generated but email failed" });
   }
 });
 
-// 🚀 Start server
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
-
-
-
-// ✅ VERIFY OTP ROUTE
-const jwt = require("jsonwebtoken");
-
+/*********************************
+ * 🔟 VERIFY OTP
+ *********************************/
 app.post("/api/verify-otp", async (req, res) => {
   try {
     const { email, otp } = req.body;
-
-    if (!email || !otp) {
-      return res.status(400).json({
-        message: "Email and OTP are required",
-      });
-    }
+    if (!email || !otp)
+      return res.status(400).json({ message: "Email and OTP are required" });
 
     const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-    if (!user) {
-      return res.status(404).json({
-        message: "User not found",
-      });
-    }
+    if (user.otp !== otp)
+      return res.status(401).json({ message: "Invalid OTP" });
 
-    if (user.otp !== otp) {
-      return res.status(401).json({
-        message: "Invalid OTP",
-      });
-    }
+    if (user.otpExpires < new Date())
+      return res.status(401).json({ message: "OTP expired" });
 
-    if (user.otpExpires < new Date()) {
-      return res.status(401).json({
-        message: "OTP expired",
-      });
-    }
-
-    // ✅ Mark verified
     user.verified = true;
     user.otp = undefined;
     user.otpExpires = undefined;
     await user.save();
 
-    // 🔐 CREATE JWT TOKEN
     const token = jwt.sign(
-      {
-        userId: user._id,
-        email: user.email,
-      },
+      { userId: user._id, email: user.email },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
-    res.json({
-      message: "OTP verified successfully",
-      token, // 👈 THIS IS IMPORTANT
-    });
-
+    res.json({ message: "OTP verified successfully", token });
   } catch (error) {
     console.error("❌ VERIFY OTP ERROR:", error.message);
-    res.status(500).json({
-      message: "Server error",
-    });
+    res.status(500).json({ message: "Server error" });
   }
 });
 
-
-// 🔐 PROTECTED PROFILE ROUTE
+/*********************************
+ * 🔐 PROTECTED PROFILE
+ *********************************/
 app.get("/api/profile", authMiddleware, async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId).select("-otp -otpExpires");
-
-    res.json({
-      message: "Profile data fetched successfully",
-      user,
-    });
-  } catch (error) {
-    res.status(500).json({
-      message: "Failed to fetch profile",
-    });
+    const user = await User.findById(req.user.userId).select(
+      "-otp -otpExpires"
+    );
+    res.json({ message: "Profile fetched", user });
+  } catch {
+    res.status(500).json({ message: "Failed to fetch profile" });
   }
 });
 
-
-const Inquiry = require("./models/Inquiry");
-const sgMail = require("@sendgrid/mail");
-
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-
-// 📩 PROPERTY INQUIRY API
+/*********************************
+ * 📩 PROPERTY INQUIRY
+ *********************************/
 app.post("/api/inquiry", async (req, res) => {
   try {
     const { propertyId, name, email, phone, message } = req.body;
-
-    if (!propertyId || !name || !email || !phone || !message) {
+    if (!propertyId || !name || !email || !phone || !message)
       return res.status(400).json({ message: "All fields are required" });
-    }
 
-    // Save inquiry
     const inquiry = new Inquiry({
       propertyId,
       name,
@@ -206,21 +165,17 @@ app.post("/api/inquiry", async (req, res) => {
       phone,
       message,
     });
-
     await inquiry.save();
 
-    // Email admin
     await sgMail.send({
       to: process.env.ADMIN_EMAIL,
       from: process.env.EMAIL_FROM,
       subject: `🏠 New Property Inquiry (${propertyId})`,
       html: `
-        <h2>New Property Inquiry</h2>
-        <p><b>Property ID:</b> ${propertyId}</p>
+        <h3>New Inquiry</h3>
         <p><b>Name:</b> ${name}</p>
         <p><b>Email:</b> ${email}</p>
         <p><b>Phone:</b> ${phone}</p>
-        <p><b>Message:</b></p>
         <p>${message}</p>
       `,
     });
@@ -232,7 +187,15 @@ app.post("/api/inquiry", async (req, res) => {
   }
 });
 
-
-const adminRoutes = require("./routes/admin");
+/*********************************
+ * 🛠 ADMIN ROUTES
+ *********************************/
 app.use("/api/admin", adminRoutes);
 
+/*********************************
+ * 🚀 START SERVER (LAST)
+ *********************************/
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
