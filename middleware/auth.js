@@ -28,10 +28,9 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
-
 const jwt = require("jsonwebtoken");
 
-module.exports = function authMiddleware(req, res, next) {
+function authMiddleware(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
 
@@ -48,7 +47,9 @@ module.exports = function authMiddleware(req, res, next) {
     req.user = decoded;
 
     next();
-  } catch (error) {
+  } catch (err) {
     return res.status(401).json({ message: "Unauthorized" });
   }
-};
+}
+
+module.exports = authMiddleware;

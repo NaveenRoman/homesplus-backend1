@@ -3,10 +3,13 @@ require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
-const jwt = require("jsonwebtoken");
-const sgMail = require("@sendgrid/mail");
-
 const authMiddleware = require("./middleware/auth");
+
+const sgMail = require("@sendgrid/mail");
+const jwt = require("jsonwebtoken");
+
+
+
 const User = require("./models/User");
 const Inquiry = require("./models/Inquiry");
 const sendOTPEmail = require("./utils/email");
