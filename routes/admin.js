@@ -8,7 +8,7 @@ const auth = require("../middleware/auth");
 router.get("/stats", auth, async (req, res) => {
   try {
     const totalUsers = await User.countDocuments();
-    const verifiedUsers = await User.countDocuments({ isVerified: true });
+    const verifiedUsers = await User.countDocuments({ verified: true });
     const totalInquiries = await Inquiry.countDocuments();
 
     const recentInquiries = await Inquiry.find()
@@ -22,6 +22,7 @@ router.get("/stats", auth, async (req, res) => {
       recentInquiries
     });
   } catch (err) {
+    console.error("Admin stats error:", err.message);
     res.status(500).json({ message: "Admin stats error" });
   }
 });

@@ -21,7 +21,7 @@ app.use(express.json());
 
 app.use(
   cors({
-    origin: true, // ✅ allows Netlify + localhost automatically
+    origin: true, // allow Netlify + localhost
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })
@@ -90,11 +90,14 @@ app.post("/api/send-otp", async (req, res) => {
 app.post("/api/verify-otp", async (req, res) => {
   try {
     const { email, otp } = req.body;
+    if (!email || !otp)
+      return res.status(400).json({ message: "Email and OTP required" });
 
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: "User not found" });
     if (user.otp !== otp) return res.status(401).json({ message: "Invalid OTP" });
-    if (user.otpExpires < new Date()) return res.status(401).json({ message: "OTP expired" });
+    if (user.otpExpires < new Date())
+      return res.status(401).json({ message: "OTP expired" });
 
     user.verified = true;
     user.otp = undefined;
@@ -114,11 +117,55 @@ app.post("/api/verify-otp", async (req, res) => {
 });
 
 /* ===============================
-   PROFILE
+   PROFILE (PROTECTED)
 ================================ */
 app.get("/api/profile", authMiddleware, async (req, res) => {
   const user = await User.findById(req.user.userId).select("-otp -otpExpires");
   res.json(user);
+});
+
+/* ===============================
+   PROPERTY INQUIRY (PROTECTED)
+================================ */
+app.post("/api/inquiry", authMiddleware, async (req, res) => {
+  try {
+    const { propertyId, name, email, phone, message } = req.body;
+
+    if (!propertyId || !name || !email || !phone || !message) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    const inquiry = new Inquiry({
+      propertyId,
+      name,
+      email,
+      phone,
+      message,
+    });
+
+    await inquiry.save();
+
+    // Email admin
+    if (process.env.SENDGRID_API_KEY) {
+      await sgMail.send({
+        to: process.env.ADMIN_EMAIL,
+        from: process.env.EMAIL_FROM,
+        subject: `🏠 New Inquiry (${propertyId})`,
+        html: `
+          <h3>New Property Inquiry</h3>
+          <p><b>Name:</b> ${name}</p>
+          <p><b>Email:</b> ${email}</p>
+          <p><b>Phone:</b> ${phone}</p>
+          <p>${message}</p>
+        `,
+      });
+    }
+
+    res.json({ message: "Inquiry sent successfully" });
+  } catch (err) {
+    console.error("INQUIRY ERROR:", err.message);
+    res.status(500).json({ message: "Server error" });
+  }
 });
 
 /* ===============================
@@ -133,3 +180,39 @@ const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
+
+
+
+
+/* ===============================
+   Whatsapp message
+================================ */
+
+const sendWhatsApp = require("./utils/whatsapp");
+
+/*********************************
+ * 👀 VISITOR TRACKING
+ *********************************/
+app.post("/api/visit", async (req, res) => {
+  try {
+    const ip =
+      req.headers["x-forwarded-for"] ||
+      req.socket.remoteAddress ||
+      "Unknown";
+
+    const message = `
+🏠 HomesPlus Website Visit
+👤 New visitor opened the site
+🌐 IP: ${ip}
+⏰ Time: ${new Date().toLocaleString()}
+    `;
+
+    await sendWhatsApp(message);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("WhatsApp alert failed:", error.message);
+    res.status(500).json({ message: "Alert failed" });
+  }
+});
+
