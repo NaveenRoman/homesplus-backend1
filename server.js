@@ -15,9 +15,12 @@ const Inquiry = require("./models/Inquiry");
 const sendOTPEmail = require("./utils/email");
 const adminRoutes = require("./routes/admin");
 
+const propertyRoutes = require("./routes/property");
+
+
 
 const uploadRoutes = require("./routes/upload");
-app.use("/api/upload", uploadRoutes);
+
 
 
 const app = express();
@@ -63,6 +66,11 @@ mongoose
 app.get("/", (req, res) => {
   res.send("HomesPlus Backend Running ✅");
 });
+
+
+app.use("/api/properties", propertyRoutes);
+
+app.use("/api/upload", uploadRoutes);
 
 /* ===============================
    SEND OTP
