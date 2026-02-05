@@ -15,6 +15,11 @@ const Inquiry = require("./models/Inquiry");
 const sendOTPEmail = require("./utils/email");
 const adminRoutes = require("./routes/admin");
 
+
+const uploadRoutes = require("./routes/upload");
+app.use("/api/upload", uploadRoutes);
+
+
 const app = express();
 
 /* ===============================
