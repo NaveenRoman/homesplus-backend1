@@ -16,16 +16,25 @@ const propertySchema = new mongoose.Schema(
   {
     title: { type: String, required: true },
     location: { type: String, required: true },
-    price: { type: String, required: true },
+
     description: String,
     area: String,
     facing: String,
     floor: String,
-    pricePerSqft: String,
-    mapLink: String,
+    type: String,
+
+    pricePerSqft: { type: String, required: true },
+    totalCost: { type: String, required: true },
+
+    availability: String,
+    phone: String,
+    email: String,
+    map: String,
+
     media: [mediaSchema],
   },
   { timestamps: true }
 );
+
 
 module.exports = mongoose.model("Property", propertySchema);
