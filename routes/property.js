@@ -41,16 +41,31 @@ router.post(
   ]),
   async (req, res) => {
     try {
-      console.log("===== DEBUG START =====");
       console.log("BODY:", req.body);
       console.log("FILES:", req.files);
-      console.log("===== DEBUG END =====");
 
-      res.json({
-        success: true,
-        body: req.body,
-        files: req.files,
+      if (!req.files || !req.files.coverImage) {
+        return res.status(400).json({ message: "Cover image required" });
+      }
+
+      const cover = req.files.coverImage[0].path;
+
+      const mediaFiles = req.files.media
+        ? req.files.media.map(file => ({
+            type: file.mimetype.startsWith("video") ? "video" : "img",
+            url: file.path,
+          }))
+        : [];
+
+      const newProperty = new Property({
+        ...req.body,
+        coverImage: cover,
+        media: mediaFiles,
       });
+
+      await newProperty.save();
+
+      res.json(newProperty);
 
     } catch (error) {
       console.error("UPLOAD ERROR:", error);
@@ -58,5 +73,6 @@ router.post(
     }
   }
 );
+
 
 module.exports = router;
