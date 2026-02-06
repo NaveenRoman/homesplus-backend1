@@ -43,3 +43,39 @@ router.post("/", async (req, res) => {
 });
 
 module.exports = router;
+
+
+
+const upload = require("../middleware/upload");
+
+router.post(
+  "/",
+  upload.fields([
+    { name: "coverImage", maxCount: 1 },
+    { name: "media", maxCount: 20 },
+  ]),
+  async (req, res) => {
+    try {
+      const cover = req.files.coverImage[0].path;
+
+      const mediaFiles = req.files.media
+        ? req.files.media.map(file => ({
+            type: file.mimetype.startsWith("video") ? "video" : "img",
+            url: file.path,
+          }))
+        : [];
+
+      const newProperty = new Property({
+        ...req.body,
+        coverImage: cover,
+        media: mediaFiles,
+      });
+
+      await newProperty.save();
+
+      res.json({ message: "Property added", newProperty });
+    } catch (error) {
+      res.status(400).json({ message: error.message });
+    }
+  }
+);

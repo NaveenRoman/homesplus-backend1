@@ -31,14 +31,15 @@ const propertySchema = new mongoose.Schema(
     email: String,
     map: String,
 
-    media: {
-  type: [mediaSchema],
-  default: [],
-},
+    // 🔥 NEW
+    coverImage: { type: String, required: true },   // Title image for index
 
+    media: {
+      type: [mediaSchema],
+      default: [],
+    },
   },
   { timestamps: true }
 );
-
 
 module.exports = mongoose.model("Property", propertySchema);
