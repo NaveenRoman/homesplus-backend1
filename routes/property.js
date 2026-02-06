@@ -31,7 +31,7 @@ router.get("/:id", async (req, res) => {
 });
 
 /* ===============================
-   ADD PROPERTY (With Cloudinary)
+   ADD PROPERTY (DEBUG VERSION)
 ================================ */
 router.post(
   "/",
@@ -41,34 +41,20 @@ router.post(
   ]),
   async (req, res) => {
     try {
+      console.log("===== DEBUG START =====");
+      console.log("BODY:", req.body);
       console.log("FILES:", req.files);
-      if (!req.files || !req.files.coverImage) {
+      console.log("===== DEBUG END =====");
 
-        return res.status(400).json({ message: "Cover image required" });
-      }
-
-      const cover = req.files.coverImage[0].path;
-
-      const mediaFiles = req.files.media
-        ? req.files.media.map(file => ({
-            type: file.mimetype.startsWith("video") ? "video" : "img",
-            url: file.path,
-          }))
-        : [];
-
-      const newProperty = new Property({
-        ...req.body,
-        coverImage: cover,
-        media: mediaFiles,
+      res.json({
+        success: true,
+        body: req.body,
+        files: req.files,
       });
 
-      await newProperty.save();
-
-      res.json({ message: "Property added", newProperty });
-
     } catch (error) {
-      console.error(error);
-      res.status(400).json({ message: error.message });
+      console.error("UPLOAD ERROR:", error);
+      res.status(500).json({ message: error.message });
     }
   }
 );
