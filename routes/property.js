@@ -76,3 +76,16 @@ router.post(
 
 
 module.exports = router;
+
+
+/* ===============================
+   DELETE PROPERTY
+================================ */
+router.delete("/:id", async (req, res) => {
+  try {
+    await Property.findByIdAndDelete(req.params.id);
+    res.json({ message: "Property deleted" });
+  } catch (error) {
+    res.status(500).json({ message: "Delete failed" });
+  }
+});
