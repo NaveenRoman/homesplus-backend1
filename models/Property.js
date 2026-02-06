@@ -31,7 +31,11 @@ const propertySchema = new mongoose.Schema(
     email: String,
     map: String,
 
-    media: [mediaSchema],
+    media: {
+  type: [mediaSchema],
+  default: [],
+},
+
   },
   { timestamps: true }
 );
