@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const Property = require("../models/Property");
+const upload = require("../middleware/upload");
 
 /* ===============================
    GET ALL PROPERTIES
@@ -30,24 +31,8 @@ router.get("/:id", async (req, res) => {
 });
 
 /* ===============================
-   ADD PROPERTY (Admin)
+   ADD PROPERTY (With Cloudinary)
 ================================ */
-router.post("/", async (req, res) => {
-  try {
-    const newProperty = new Property(req.body);
-    await newProperty.save();
-    res.json({ message: "Property added", newProperty });
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
-});
-
-module.exports = router;
-
-
-
-const upload = require("../middleware/upload");
-
 router.post(
   "/",
   upload.fields([
@@ -56,6 +41,10 @@ router.post(
   ]),
   async (req, res) => {
     try {
+      if (!req.files.coverImage) {
+        return res.status(400).json({ message: "Cover image required" });
+      }
+
       const cover = req.files.coverImage[0].path;
 
       const mediaFiles = req.files.media
@@ -74,8 +63,12 @@ router.post(
       await newProperty.save();
 
       res.json({ message: "Property added", newProperty });
+
     } catch (error) {
+      console.error(error);
       res.status(400).json({ message: error.message });
     }
   }
 );
+
+module.exports = router;
