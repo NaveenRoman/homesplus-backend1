@@ -41,7 +41,9 @@ router.post(
   ]),
   async (req, res) => {
     try {
-      if (!req.files.coverImage) {
+      console.log("FILES:", req.files);
+      if (!req.files || !req.files.coverImage) {
+
         return res.status(400).json({ message: "Cover image required" });
       }
 
