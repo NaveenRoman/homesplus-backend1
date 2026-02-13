@@ -27,6 +27,9 @@ const uploadRoutes = require("./routes/upload");
 const visitorRoutes = require("./routes/visitor");
 
 
+
+
+
 const app = express();
 
 /* ===============================
@@ -81,6 +84,8 @@ app.use("/api/lead", leadRoutes);
 
 app.use("/api/visitors", visitorRoutes);
 
+app.use("/api/favorites",
+require("./routes/favorite"));
 
 /* ===============================
    SEND OTP
