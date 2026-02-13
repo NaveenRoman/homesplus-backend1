@@ -19,4 +19,25 @@ router.get("/", async (req, res) => {
   res.json(visitors);
 });
 
+/* DELETE VISITOR ⭐ ADD THIS */
+router.delete("/:id", async (req, res) => {
+  try {
+
+    const deleted = await Visitor.findByIdAndDelete(req.params.id);
+
+    if(!deleted){
+      return res.status(404).json({
+        message: "Visitor not found"
+      });
+    }
+
+    res.json({ success:true });
+
+  } catch (err) {
+    res.status(500).json({
+      message: "Delete failed"
+    });
+  }
+});
+
 module.exports = router;
