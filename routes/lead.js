@@ -1,27 +1,17 @@
-const express = require("express");
-const router = express.Router();
-const sendWhatsApp = require("../utils/whatsapp");
+app.post("/api/lead", async (req, res) => {
 
-router.post("/", async (req, res) => {
-  try {
-    const { name, phone, place, propertyId } = req.body;
+  const { name, phone, place, propertyId } = req.body;
 
-    const message = `
+  const message = `
 🏠 New Property Lead
-👤 Name: ${name}
-📱 WhatsApp: ${phone}
-📍 Place: ${place}
-🔎 Viewing Property ID: ${propertyId}
-⏰ Time: ${new Date().toLocaleString()}
-    `;
 
-    await sendWhatsApp(message);
+Name: ${name}
+Phone: ${phone}
+Location: ${place}
+Property: ${propertyId}
+  `;
 
-    res.json({ success: true });
+  await sendWhatsApp(message);
 
-  } catch (err) {
-    res.status(500).json({ message: "Error sending lead" });
-  }
+  res.json({ success: true });
 });
-
-module.exports = router;
