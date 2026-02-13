@@ -24,6 +24,7 @@ const leadRoutes = require("./routes/lead");
 
 const uploadRoutes = require("./routes/upload");
 
+const visitorRoutes = require("./routes/visitor");
 
 
 const app = express();
@@ -76,6 +77,9 @@ app.use("/api/properties", propertyRoutes);
 app.use("/api/upload", uploadRoutes);
 
 app.use("/api/lead", leadRoutes);
+
+
+app.use("/api/visitors", visitorRoutes);
 
 
 /* ===============================
