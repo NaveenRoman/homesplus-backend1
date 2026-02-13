@@ -17,6 +17,9 @@ const adminRoutes = require("./routes/admin");
 
 const propertyRoutes = require("./routes/property");
 
+const leadRoutes = require("./routes/lead");
+
+
 
 
 const uploadRoutes = require("./routes/upload");
@@ -71,6 +74,9 @@ app.get("/", (req, res) => {
 app.use("/api/properties", propertyRoutes);
 
 app.use("/api/upload", uploadRoutes);
+
+app.use("/api/lead", leadRoutes);
+
 
 /* ===============================
    SEND OTP
@@ -232,5 +238,4 @@ app.post("/api/visit", async (req, res) => {
   }
 });
 
-const leadRoutes = require("./routes/lead");
-app.use("/api/lead", leadRoutes);
+
