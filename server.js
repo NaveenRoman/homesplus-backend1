@@ -232,3 +232,5 @@ app.post("/api/visit", async (req, res) => {
   }
 });
 
+const leadRoutes = require("./routes/lead");
+app.use("/api/lead", leadRoutes);
