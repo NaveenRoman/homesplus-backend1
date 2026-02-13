@@ -2,47 +2,71 @@ const express = require("express");
 const router = express.Router();
 
 const Favorite = require("../models/favorite");
-const Property = require("../models/property");
+const Property = require("../models/Property");
 
-/* SAVE FAVORITE */
-router.post("/", async (req,res)=>{
-  try{
-    const fav = new Favorite(req.body);
+/* ===============================
+   ADD FAVORITE
+================================ */
+router.post("/", async (req, res) => {
+  try {
+
+    const { propertyId } = req.body;
+
+    if (!propertyId) {
+      return res.status(400).json({ message: "Property ID required" });
+    }
+
+    // prevent duplicate favorites
+    const existing = await Favorite.findOne({ propertyId });
+    if (existing) {
+      return res.json({ message: "Already added" });
+    }
+
+    const fav = new Favorite({ propertyId });
     await fav.save();
-    res.json({success:true});
-  }catch(err){
-    res.status(500).json({message:"Save failed"});
+
+    res.json({ success: true });
+
+  } catch (err) {
+    res.status(500).json({ message: "Save failed" });
   }
 });
 
-/* GET FAVORITES WITH PROPERTY NAME */
-router.get("/", async (req,res)=>{
 
-  const favorites = await Favorite.find()
-    .sort({createdAt:-1});
+/* ===============================
+   GET ALL FAVORITES
+================================ */
+router.get("/", async (req, res) => {
+  try {
 
-  const result = [];
+    const favorites = await Favorite.find()
+      .populate("propertyId")
+      .sort({ createdAt: -1 });
 
-  for(const f of favorites){
+    const result = favorites.map(f => ({
+      _id: f._id,
+      propertyName: f.propertyId?.title || "Unknown",
+      createdAt: f.createdAt
+    }));
 
-    const property =
-      await Property.findById(f.propertyId);
+    res.json(result);
 
-    result.push({
-      _id:f._id,
-      propertyName:property?.title || "Unknown",
-      propertyId:f.propertyId,
-      createdAt:f.createdAt
-    });
+  } catch (err) {
+    res.status(500).json({ message: "Fetch failed" });
   }
-
-  res.json(result);
 });
 
-/* DELETE */
-router.delete("/:id", async(req,res)=>{
-  await Favorite.findByIdAndDelete(req.params.id);
-  res.json({success:true});
+
+/* ===============================
+   DELETE FAVORITE
+================================ */
+router.delete("/:id", async (req, res) => {
+  try {
+    await Favorite.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ message: "Delete failed" });
+  }
 });
 
 module.exports = router;

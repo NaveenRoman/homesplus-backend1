@@ -84,8 +84,8 @@ app.use("/api/lead", leadRoutes);
 
 app.use("/api/visitors", visitorRoutes);
 
-app.use("/api/favorites",
-require("./routes/favorite"));
+app.use("/api/favorites", require("./routes/favorite"));
+
 
 /* ===============================
    SEND OTP
